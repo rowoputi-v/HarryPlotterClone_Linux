@@ -1,8 +1,7 @@
-# ⚡ Harry Plotter
+# 🐦 Raven Plot
 
 A modern HDF5 signal viewer for Linux, built with Python, Tkinter, and Matplotlib.
-
-![Harry Plotter Screenshot](image-2024-12-4_11-28-24.png)
+Also includes a web interface powered by Flask and Plotly.
 
 ## Features
 
@@ -15,16 +14,16 @@ A modern HDF5 signal viewer for Linux, built with Python, Tkinter, and Matplotli
 - **Navigation toolbar** — pan, zoom, save each individual plot
 - **Responsive** — plots redraw when the window is resized
 - **Catppuccin Mocha** dark theme throughout
+- **Web UI** — browser-based viewer with Plotly, drag & drop, and plot type selection
 
 ## Requirements
 
 - Python 3.9+
-- `h5py`
-- `numpy`
-- `matplotlib`
-- `tkinterdnd2` *(optional — enables drag & drop)*
-- `mplcursors` *(optional — enables hover tooltips on plots)*
-- `folium` *(optional — enables GPS map feature)*
+- `h5py`, `numpy`, `matplotlib`
+- `tkinterdnd2` *(optional — drag & drop)*
+- `mplcursors` *(optional — hover tooltips)*
+- `folium` *(optional — GPS map)*
+- `flask` + `plotly` *(optional — web UI)*
 
 ## Installation
 
@@ -35,19 +34,22 @@ cd HarryPlotterClone_Linux
 python -m venv .venv
 source .venv/bin/activate
 
-pip install h5py numpy matplotlib tkinterdnd2 mplcursors folium
+pip install h5py numpy matplotlib tkinterdnd2 mplcursors folium flask plotly
 ```
 
 ## Running
 
+### Desktop App
 ```bash
 ./run.sh
+# or
+.venv/bin/python ravenplot.py
 ```
 
-Or directly:
-
+### Web App
 ```bash
-.venv/bin/python harryplotter.py
+cd webapp && ./run_web.sh
+# then open http://localhost:5000
 ```
 
 ## Usage
@@ -61,15 +63,16 @@ Or directly:
 | Multi-select | Ctrl+click / Shift+click, then **▶ Plot Selected** |
 | Overlay signals | Enable **Overlay** checkbox, then plot |
 | Clear all plots | Click **Clear Plots** or `Ctrl+L` |
-| Open file dialog | `Ctrl+O` |
 
 ## Project Structure
 
 ```
-harryplotter.py   # Main application
-run.sh            # Launch script
-icons/            # App icon
-.venv/            # Python virtual environment (not committed)
+ravenplot.py      # Desktop application (Tkinter + Matplotlib)
+webapp/           # Web application (Flask + Plotly)
+  app.py          #   Flask backend
+  templates/      #   HTML templates
+  run_web.sh      #   Launch script
+run.sh            # Desktop launch script
 ```
 
 ## License

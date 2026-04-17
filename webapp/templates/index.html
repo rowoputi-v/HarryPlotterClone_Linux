@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raven Plot</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#f5f5f7; --surface:#ffffff; --border:#d2d2d7;
+  --text:#1d1d1f; --muted:#86868b; --accent:#0071e3;
+  --danger:#ff3b30; --radius:12px; --sidebar:280px; --topbar:52px;
+}
+html,body { height:100%; font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:var(--bg); color:var(--text); font-size:14px; -webkit-font-smoothing:antialiased; }
+#topbar { position:fixed; top:0; left:0; right:0; height:var(--topbar); background:rgba(255,255,255,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:8px; z-index:100; }
+.brand { font-size:15px; font-weight:600; color:var(--text); margin-right:12px; letter-spacing:-0.01em; }
+.sep { width:1px; height:18px; background:var(--border); margin:0 4px; }
+.btn { display:inline-flex; align-items:center; gap:6px; padding:0 14px; height:30px; border-radius:20px; border:none; cursor:pointer; font-family:inherit; font-size:13px; font-weight:500; transition:background 0.15s; white-space:nowrap; }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { background:#0077ed; }
+.btn-ghost { background:transparent; color:var(--text); border:1px solid var(--border); }
+.btn-ghost:hover { background:var(--bg); }
+.btn-danger { background:transparent; color:var(--danger); border:1px solid transparent; }
+.btn-danger:hover { background:rgba(255,59,48,0.06); }
+.opt { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none; }
+.opt input { accent-color:var(--accent); width:13px; height:13px; cursor:pointer; }
+#file-badge { margin-left:auto; font-size:12px; color:var(--muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#layout { display:flex; height:100vh; padding-top:var(--topbar); }
+#sidebar { width:var(--sidebar); flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+#sidebar-top { padding:14px 14px 10px; border-bottom:1px solid var(--border); }
+#search-box { display:flex; align-items:center; gap:8px; background:var(--bg); border-radius:8px; padding:0 10px; height:32px; }
+#search-box svg { color:var(--muted); flex-shrink:0; }
+#search-in { border:none; background:transparent; flex:1; font-family:inherit; font-size:13px; color:var(--text); outline:none; }
+#search-in::placeholder { color:var(--muted); }
+#search-clr { cursor:pointer; color:var(--muted); font-size:14px; display:none; }
+#search-clr:hover { color:var(--text); }
+#sig-count { font-size:11px; color:var(--muted); margin-top:8px; }
+#tree { flex:1; overflow-y:auto; padding:8px 0 20px; }
+#tree::-webkit-scrollbar { width:4px; }
+#tree::-webkit-scrollbar-thumb { background:#d2d2d7; border-radius:2px; }
+.file-group { margin-bottom:4px; }
+.file-hdr { display:flex; align-items:center; gap:8px; padding:7px 14px; cursor:pointer; user-select:none; font-size:11px; font-weight:600; color:var(--muted); letter-spacing:0.05em; text-transform:uppercase; }
+.file-hdr:hover { color:var(--text); }
+.chevron { width:14px; height:14px; flex-shrink:0; transition:transform 0.2s; }
+.file-hdr.closed .chevron { transform:rotate(-90deg); }
+.file-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-count { font-size:10px; color:var(--muted); font-weight:400; letter-spacing:0; }
+.file-body.hidden { display:none; }
+.grp-hdr { display:flex; align-items:center; gap:6px; padding:5px 14px 5px 26px; cursor:pointer; user-select:none; font-size:12px; color:var(--muted); }
+.grp-hdr:hover { color:var(--text); }
+.grp-hdr .chevron { width:12px; height:12px; }
+.grp-hdr.closed .chevron { transform:rotate(-90deg); }
+.grp-body.hidden { display:none; }
+.sig { display:flex; align-items:center; padding:6px 14px 6px 34px; cursor:pointer; gap:8px; transition:background 0.1s; }
+.sig.shallow { padding-left:26px; }
+.sig:hover { background:rgba(0,0,0,0.03); }
+.sig.on { background:rgba(0,113,227,0.07); }
+.sig.on .sig-n { color:var(--accent); font-weight:500; }
+.sig-n { flex:1; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sig-m { font-size:10px; color:var(--muted); flex-shrink:0; }
+#main { flex:1; overflow-y:auto; padding:24px 24px 56px; display:flex; flex-direction:column; gap:10px; }
+#main::-webkit-scrollbar { width:6px; }
+#main::-webkit-scrollbar-thumb { background:#d2d2d7; border-radius:3px; }
+#drop { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; border:1.5px dashed var(--border); border-radius:var(--radius); color:var(--muted); padding:80px 20px; text-align:center; cursor:pointer; min-height:260px; transition:border-color 0.2s,background 0.2s; }
+#drop:hover,#drop.over { border-color:var(--accent); background:rgba(0,113,227,0.03); }
+#drop svg { opacity:0.2; }
+#drop h3 { font-size:17px; font-weight:500; color:var(--text); }
+#drop p { font-size:13px; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.card-top { display:flex; align-items:center; justify-content:space-between; padding:10px 14px 0; }
+.card-title { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:92%; }
+.card-rm { cursor:pointer; color:var(--muted); width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:14px; flex-shrink:0; }
+.card-rm:hover { background:rgba(255,59,48,0.08); color:var(--danger); }
+#bar { position:fixed; bottom:0; left:0; right:0; height:28px; background:rgba(255,255,255,0.85); backdrop-filter:blur(20px); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; font-size:11px; color:var(--muted); gap:10px; z-index:100; }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--border); flex-shrink:0; }
+.dot.g { background:#34c759; } .dot.b { background:var(--accent); } .dot.r { background:var(--danger); }
+#pc { margin-left:auto; }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <span class="brand">Raven Plot</span>
+  <div class="sep"></div>
+  <label><input type="file" id="i-open" accept=".h5,.hdf5,.hdf" style="display:none">
+    <span class="btn btn-primary" onclick="document.getElementById('i-open').click()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Open file
+    </span>
+  </label>
+  <label><input type="file" id="i-add" accept=".h5,.hdf5,.hdf" style="display:none">
+    <span class="btn btn-ghost" onclick="document.getElementById('i-add').click()">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add file
+    </span>
+  </label>
+  <div class="sep"></div>
+  <label class="opt"><input type="checkbox" id="o-time" checked> Time axis</label>
+  <label class="opt"><input type="checkbox" id="o-skip"> Skip first</label>
+  <div class="sep"></div>
+  <select id="o-type" style="height:30px;border-radius:20px;border:1px solid var(--border);background:transparent;font-family:inherit;font-size:12px;color:var(--text);padding:0 10px;cursor:pointer;outline:none;">
+    <option value="line">Line</option>
+    <option value="scatter">Scatter</option>
+    <option value="bar">Bar</option>
+    <option value="step">Step</option>
+  </select>
+  <div class="sep"></div>
+  <span class="btn btn-ghost" onclick="clearFile()" title="Remove all loaded signals">Clear file</span>
+  <span class="btn btn-danger" onclick="clearAll()">Clear plots</span>
+  <span id="file-badge">No file loaded</span>
+</header>
+
+<div id="layout">
+  <aside id="sidebar">
+    <div id="sidebar-top">
+      <div id="search-box">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="search-in" type="text" placeholder="Search signals…" oninput="onSearch(this.value)">
+        <span id="search-clr" onclick="clearSearch()">✕</span>
+      </div>
+      <div id="sig-count"></div>
+    </div>
+    <div id="tree"></div>
+  </aside>
+
+  <main id="main">
+    <div id="drop"
+      ondragover="event.preventDefault();this.classList.add('over')"
+      ondragleave="this.classList.remove('over')"
+      ondrop="onDrop(event)"
+      onclick="document.getElementById('i-open').click()">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <h3>Drop an HDF5 file here</h3>
+      <p>or click to browse &nbsp;·&nbsp; .h5 · .hdf5 · .hdf</p>
+    </div>
+  </main>
+</div>
+
+<footer id="bar">
+  <div class="dot" id="s-dot"></div>
+  <span id="s-msg">Ready</span>
+  <span id="pc"></span>
+</footer>
+
+<script>
+let allSigs = [], plotted = [];
+
+document.getElementById('i-open').onchange = e => { if(e.target.files[0]) upload(e.target.files[0],'replace'); e.target.value=''; };
+document.getElementById('i-add').onchange  = e => { if(e.target.files[0]) upload(e.target.files[0],'add');     e.target.value=''; };
+
+function onDrop(e) {
+  e.preventDefault(); document.getElementById('drop').classList.remove('over');
+  const fs = [...e.dataTransfer.files].filter(f=>/\.(h5|hdf5|hdf)$/i.test(f.name));
+  if(!fs.length) return;
+  upload(fs[0],'replace'); fs.slice(1).forEach(f=>upload(f,'add'));
+}
+
+async function upload(file, mode) {
+  setStatus('Loading '+file.name+'…','b');
+  const fd = new FormData(); fd.append('file',file); fd.append('mode',mode);
+  const r = await fetch('/upload',{method:'POST',body:fd});
+  const d = await r.json();
+  if(d.error){ setStatus('Error: '+d.error,'r'); return; }
+  allSigs = d.signals;
+  if(mode==='replace'){ plotted=[]; document.querySelectorAll('.card').forEach(el=>el.remove()); }
+  document.getElementById('drop').style.display='none';
+  document.getElementById('file-badge').textContent='📂 '+d.filename;
+  buildTree(allSigs);
+  setStatus('Loaded '+d.total+' signals','g');
+  updateCount();
+}
+
+// ── tree ──────────────────────────────────────────────────────────────────
+function buildTree(sigs) {
+  const tree = document.getElementById('tree');
+  tree.innerHTML = '';
+
+  // Detect file-level grouping: all paths start with same first segment
+  const filePrefixes = [...new Set(allSigs.map(s => s.path.split('/')[0]))];
+  const isMultiFile = filePrefixes.length > 1 ||
+    (filePrefixes.length === 1 && allSigs.some(s => s.path.indexOf('/') !== -1 &&
+      allSigs.filter(a => a.path.startsWith(filePrefixes[0]+'/') || a.path === filePrefixes[0]).length === allSigs.length));
+
+  // Group by file if multi-file
+  const fileMap = {};
+  if(isMultiFile && allSigs[0] && allSigs[0].path.includes('/')) {
+    for(const s of sigs) {
+      const slash = s.path.indexOf('/');
+      const f = slash===-1 ? s.path : s.path.slice(0,slash);
+      if(!fileMap[f]) fileMap[f]=[];
+      fileMap[f].push(s);
+    }
+  } else {
+    fileMap[''] = sigs;
+  }
+
+  const fileNames = Object.keys(fileMap);
+  const showFileGroups = fileNames.length > 1 || (fileNames[0] && fileNames[0] !== '');
+
+  for(const [fname, fileSigs] of Object.entries(fileMap)) {
+    const wrap = document.createElement('div');
+    wrap.className = 'file-group';
+
+    if(showFileGroups && fname) {
+      const hdr = el('div','file-hdr');
+      hdr.innerHTML = chevronSVG(14) + `<span class="file-name">${x(fname)}</span><span class="file-count">${fileSigs.length}</span>`;
+      const body = el('div','file-body');
+      hdr.onclick = () => { hdr.classList.toggle('closed'); body.classList.toggle('hidden'); };
+      fillSignals(body, fileSigs, fname+'/');
+      wrap.append(hdr,body);
+    } else {
+      fillSignals(wrap, fileSigs, '');
+    }
+    tree.appendChild(wrap);
+  }
+
+  const tot = allSigs.length, sh = sigs.length;
+  document.getElementById('sig-count').textContent =
+    sh < tot ? sh+' of '+tot+' signals' : tot+' signal'+(tot!==1?'s':'');
+}
+
+function fillSignals(container, sigs, prefix) {
+  // group by sub-folder
+  const grps = {};
+  for(const s of sigs) {
+    const rel = prefix ? s.path.slice(prefix.length) : s.path;
+    const last = rel.lastIndexOf('/');
+    const g = last===-1 ? '' : rel.slice(0,last);
+    if(!grps[g]) grps[g]=[];
+    grps[g].push(s);
+  }
+  const keys = Object.keys(grps);
+  const flat = keys.length===1 && keys[0]==='';
+
+  if(flat) {
+    for(const s of sigs) container.appendChild(sigRow(s, true));
+    return;
+  }
+
+  for(const [g, items] of Object.entries(grps)) {
+    if(g) {
+      const gh = el('div','grp-hdr');
+      gh.innerHTML = chevronSVG(12)+`<span>${x(g.split('/').pop())}</span>`;
+      const gb = el('div','grp-body');
+      gh.onclick = () => { gh.classList.toggle('closed'); gb.classList.toggle('hidden'); };
+      for(const s of items) gb.appendChild(sigRow(s,false));
+      container.append(gh,gb);
+    } else {
+      for(const s of items) container.appendChild(sigRow(s, true));
+    }
+  }
+}
+
+function sigRow(s, shallow) {
+  const d = el('div','sig'+(shallow?' shallow':'')+(plotted.includes(s.path)?' on':''));
+  d.dataset.path = s.path;
+  const name = s.path.split('/').pop();
+  const meta = s.shape.length ? s.shape.join('×') : 'scalar';
+  d.innerHTML = `<span class="sig-n" title="${x(s.path)}">${x(name)}</span><span class="sig-m">${x(meta)}</span>`;
+  d.onclick = () => addPlot(s.path);
+  return d;
+}
+
+function chevronSVG(sz) {
+  return `<svg class="chevron" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>`;
+}
+
+// ── search ────────────────────────────────────────────────────────────────
+function onSearch(q) {
+  document.getElementById('search-clr').style.display = q?'':'none';
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  buildTree(words.length ? allSigs.filter(s=>words.every(w=>s.path.toLowerCase().includes(w))) : allSigs);
+}
+function clearSearch() {
+  document.getElementById('search-in').value='';
+  document.getElementById('search-clr').style.display='none';
+  buildTree(allSigs);
+}
+
+// ── plot ──────────────────────────────────────────────────────────────────
+async function addPlot(path) {
+  if(plotted.includes(path)) return;
+  plotted.push(path);
+  document.querySelectorAll(`.sig[data-path="${CSS.escape(path)}"]`).forEach(e=>e.classList.add('on'));
+  setStatus('Loading…','b');
+  const r = await fetch('/plot',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({paths:[path],options:{use_time:document.getElementById('o-time').checked,skip_first:document.getElementById('o-skip').checked,plot_type:document.getElementById('o-type').value}})
+  });
+  const d = await r.json();
+  for(const item of d.figures) {
+    if(item.error){ setStatus(item.error,'r'); continue; }
+    renderCard(item);
+  }
+  setStatus('Ready','g'); updateCount();
+}
+
+function renderCard(item) {
+  const main = document.getElementById('main');
+  const card = el('div','card'); card.dataset.path=item.path;
+  const uid = 'p'+Date.now()+Math.random().toString(36).slice(2);
+  card.innerHTML = `<div class="card-top"><span class="card-title">${x(item.path)}</span><span class="card-rm" onclick="rmPlot(this,'${x(item.path)}')">✕</span></div><div id="${uid}" style="width:100%;height:240px"></div>`;
+  main.appendChild(card);
+  const fig = JSON.parse(item.fig);
+  Plotly.newPlot(uid,fig.data,fig.layout,{responsive:true,displaylogo:false,modeBarButtonsToRemove:['select2d','lasso2d','autoScale2d']});
+}
+
+function rmPlot(btn, path) {
+  btn.closest('.card').remove();
+  plotted = plotted.filter(p=>p!==path);
+  document.querySelectorAll(`.sig[data-path="${CSS.escape(path)}"]`).forEach(e=>e.classList.remove('on'));
+  updateCount();
+  if(!plotted.length) document.getElementById('drop').style.display='';
+}
+
+function clearFile() {
+  fetch('/clear',{method:'POST'});
+  allSigs=[]; plotted=[];
+  document.querySelectorAll('.card').forEach(e=>e.remove());
+  document.getElementById('tree').innerHTML='';
+  document.getElementById('sig-count').textContent='';
+  document.getElementById('file-badge').textContent='No file loaded';
+  document.getElementById('drop').style.display='';
+  updateCount(); setStatus('Ready',null);
+}
+
+function clearAll() {
+  fetch('/clear',{method:'POST'});
+  plotted=[];
+  document.querySelectorAll('.card').forEach(e=>e.remove());
+  document.querySelectorAll('.sig.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('drop').style.display = allSigs.length ? 'none' : '';
+  updateCount(); setStatus('Ready',null);
+}
+
+// ── util ──────────────────────────────────────────────────────────────────
+function el(tag,cls){ const e=document.createElement(tag); e.className=cls; return e; }
+function x(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setStatus(msg,c){ document.getElementById('s-msg').textContent=msg; document.getElementById('s-dot').className='dot'+(c?' '+c:''); }
+function updateCount(){ const n=plotted.length; document.getElementById('pc').textContent=n?n+' plot'+(n!==1?'s':''):''; }
+
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='l'){e.preventDefault();clearAll();}
+  if(e.ctrlKey&&e.key==='o'){e.preventDefault();document.getElementById('i-open').click();}
+});
+</script>
+</body>
+</html>
