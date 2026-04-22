@@ -153,16 +153,43 @@ def plot():
     for fname, sigs in _sessions[sid].items():
         all_sigs.update(sigs)
 
-    # Try to find a time vector
-    time_vec = None
+    # Collect all time vectors (per-file and global)
+    time_vectors = {}
     if use_time:
         for path, arr in all_sigs.items():
             lp = path.lower()
             if "time" in lp or "timestamp" in lp:
                 arr = np.squeeze(arr)
-                if arr.ndim == 1:
-                    time_vec = arr.astype(float)
-                    break
+                if arr.ndim == 1 and arr.dtype.kind in ("f", "i", "u"):
+                    time_vectors[path] = arr.astype(float)
+
+    def _find_time_vec(signal_path, signal_len):
+        """Find the best matching time vector for a signal.
+        Prefer a time vector in the same file/group, then any with matching length."""
+        if not time_vectors:
+            return None
+
+        # 1. Try same group/file prefix
+        parts = signal_path.rsplit("/", 1)
+        prefix = parts[0] + "/" if len(parts) > 1 else ""
+        candidates = []
+        for tp, tv in time_vectors.items():
+            # Same prefix = same file/group
+            same_group = tp.startswith(prefix) if prefix else True
+            candidates.append((same_group, tp, tv))
+
+        # 2. Sort: prefer same group, then best length match
+        best = None
+        best_score = (-1, float("inf"))
+        for same_group, tp, tv in candidates:
+            length_match = len(tv) >= signal_len
+            length_diff = abs(len(tv) - signal_len)
+            score = (int(same_group) + int(length_match), -length_diff)
+            if score > best_score:
+                best_score = score
+                best = tv
+
+        return best
 
     figures = []
     for path in paths:
@@ -170,14 +197,25 @@ def plot():
         if arr is None:
             continue
         arr = np.squeeze(arr)
-        if skip and arr.ndim >= 1 and len(arr) > 1:
-            arr = arr[1:]
 
         label = path.split("/")[-1]
 
+        # Find matching time vector BEFORE any slicing
+        raw_time = _find_time_vec(path, len(arr) if arr.ndim >= 1 else 0)
+
+        if skip and arr.ndim >= 1 and len(arr) > 1:
+            arr = arr[1:]
+            # Slice time vector the same way
+            if raw_time is not None and len(raw_time) > 1:
+                raw_time = raw_time[1:]
+
         if arr.ndim == 1:
             n = len(arr)
-            x = time_vec[:n].tolist() if time_vec is not None and len(time_vec) >= n else list(range(n))
+            # Build x-axis: use time vector trimmed to exactly n points
+            if raw_time is not None and len(raw_time) >= n:
+                x = raw_time[:n].tolist()
+            else:
+                x = list(range(n))
 
             if arr.dtype.kind in ("U", "S", "O"):
                 vals = [str(v) for v in arr.tolist()]
@@ -215,18 +253,21 @@ def plot():
 
         fig.update_layout(
             title=dict(text=path, font=dict(size=13, color="#1c1c1c"), x=0),
-            margin=dict(l=48, r=16, t=40, b=40),
-            height=260,
+            margin=dict(l=60, r=20, t=44, b=52),
+            height=280,
+            autosize=True,
             paper_bgcolor="white",
             plot_bgcolor="#f7f8fa",
             font=dict(family="'Inter', 'Helvetica Neue', sans-serif", size=11, color="#3a3a3a"),
             xaxis=dict(
-                title="Time [s]" if use_time else "Sample",
+                title=dict(text="Time [s]" if use_time else "Sample", standoff=8),
                 gridcolor="#e8e8e8", linecolor="#d0d0d0", zeroline=False,
+                automargin=True,
             ),
             yaxis=dict(
-                title=label,
+                title=dict(text=label, standoff=8),
                 gridcolor="#e8e8e8", linecolor="#d0d0d0", zeroline=False,
+                automargin=True,
             ),
             showlegend=False,
             hovermode="x unified",
